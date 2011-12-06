@@ -1,0 +1,18 @@
+/*
+Theme Name: GCX - Global Tech Dev
+Theme URI: https://www.gcx2.org/
+Version: 0.1
+Description: Global Tech Dev
+Author: Global ConneXion
+Author URI: https://www.gcx2.org/
+Template: TheStyle
+License: Modified BSD License
+*/
+
+@import url("../TheStyle/style.css");
+
+#header { margin-bottom:10px; }
+#logo { margin: 20px 0px 5px 0px; }
+/* nate edit */ input#searchinput {color:#777;}
+/* nate edit */ #left-area {margin-left:0; width:68%;}
+/* nate edit */ #sidebar .widget.gtd-add-buttons h3 a {display:block;}

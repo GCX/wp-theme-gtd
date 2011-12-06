@@ -1,0 +1,44 @@
+<?php
+if(array_key_exists('join_project', $_REQUEST) || array_key_exists('leave_project', $_REQUEST)) {
+	global $logger;
+	$project_id = array_key_exists('join_project', $_REQUEST) ? (int) $_REQUEST['join_project'] : (int) $_REQUEST['leave_project'];
+	$logger->debug('Project ID: ' . $project_id);
+	$action = array_key_exists('join_project', $_REQUEST) ? 'add_user_to_project' : 'remove_user_from_project';
+	
+	GlobalTechDev::singleton()->$action($project_id);
+	wp_redirect(get_permalink($project_id));
+	exit();
+}
+
+get_header();
+?>
+<div id="content" class="clearfix">
+	<div id="left-area">
+	<?php if ( have_posts() ) : while ( have_posts() ) : the_post(); ?>
+		<div id="post" class="post">
+			<div class="post-content clearfix">
+				<div class="info-panel">
+					<?php get_template_part('includes/infopanel-project'); ?>
+				</div> <!-- end .info-panel -->
+				
+				<div class="post-text">
+					<h1 class="title"><?php the_title(); ?></h1>
+					<p class="post-meta">Project</p>
+					<div class="hr"></div>
+					
+					<?php the_content(); ?>
+					
+				</div> <!-- .post-text -->
+			</div> <!-- .post-content -->
+		</div> <!-- #post -->
+	<?php endwhile; endif; ?>
+	</div> <!-- #left-area -->
+	
+	<div id="sidebar">
+		<?php dynamic_sidebar('Project'); ?>
+	</div> <!-- end #sidebar -->
+</div> <!-- #content -->
+			
+<div id="content-bottom-bg"></div>
+			
+<?php get_footer(); ?>
