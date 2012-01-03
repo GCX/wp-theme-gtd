@@ -1,6 +1,7 @@
 <?php
 
-require_once get_stylesheet_directory() . '/widgets/add-buttons-widget.php';
+require_once get_stylesheet_directory() . '/includes/widgets/add-buttons-widget.php';
+require_once get_stylesheet_directory() . '/includes/widgets/tag-cloud-widget.php';
 
 class GlobalTechDev {
 	/**
@@ -50,6 +51,13 @@ class GlobalTechDev {
 	* @var string
 	*/
 	const SKILLS = 'gtd_skills';
+	
+	/**
+	 * Tags custom taxonomy
+	 * We dont use post_tag taxonomy in order to keep our tags separate.
+	 * @var string
+	 */
+	const TAGS = 'gtd_tags';
 	
 	/**
 	* Developers to Projects post2post link id
@@ -103,6 +111,15 @@ class GlobalTechDev {
 		add_filter('gform_post_data', array(&$this, 'modify_gravityform_post_data'), 5, 2);
 		add_action('after_setup_theme', array(&$this, 'register_sidebars'), 12, 0);
 		add_filter('the_content', array(&$this, 'build_post_content'), 10, 1);
+		add_filter('gform_pre_render', array(&$this, 'populate_gravity_form'), 10, 1);
+		add_filter('gform_field_content', array(&$this, 'add_image_to_form'), 10, 5);
+		add_action('gform_pre_submission', array(&$this, 'form_pre_submission'), 10, 1);
+		add_action('gform_confirmation', array(&$this, 'redirect_form_submission'), 10, 4);
+		add_action('gform_field_validation', array(&$this, 'delete_image_from_post'), 10, 4);
+
+		add_filter('next_post_rel_link', '__return_false'); //do not add <link rel="next"/> to <head/>
+		add_filter('previous_post_rel_link', '__return_false'); //do not add <link rel="prev"/> to <head/>
+		remove_action('wp_head', 'rel_canonical');
 	}
 	
 	/**
@@ -132,9 +149,6 @@ class GlobalTechDev {
 					'custom-fields',
 					'thumbnail',
 					'author',
-				),
-				'taxonomies'      => array(
-					'post_tag',
 				),
 				'labels'          => array(
 					'name'               => 'Projects',
@@ -241,6 +255,25 @@ class GlobalTechDev {
 			)
 		);
 		
+		//Register the Tags (gtd_tags) taxonomy and asign it to gtd_projects post type
+		register_taxonomy(
+			self::TAGS,
+			array(0 => self::PROJECTS),
+			array(
+				'public'         => true,
+				'hierarchical'   => false,
+				'label'          => 'GTD Tags',
+				'show_ui'        => true,
+				'show_tagcloud'  => true,
+				'query_var'      => true,
+				'rewrite'        => array(
+					'slug'       => 'tag',
+					'with_front' => false,
+				),
+				'singular_label' => 'GTD Tag'
+			)
+		);
+		
 		//Register the Skills (gtd_skills) taxonomy and asign it to gtd_developers post type
 		register_taxonomy(
 			self::SKILLS,
@@ -308,7 +341,8 @@ class GlobalTechDev {
 	 * Enqueues necessary javascript
 	 */
 	public function enqueue_scripts() {
-		wp_enqueue_script('gtd', $this->base_url . '/js/gtd.js', array('jquery'));
+		wp_enqueue_script('jquery-ui-tabs');
+		wp_enqueue_script('gtd', $this->base_url . '/js/gtd.js', array('jquery', 'jquery-ui-tabs'));
 	}
 	
 	/**
@@ -586,38 +620,344 @@ class GlobalTechDev {
 		return false;
 	}
 	
+	/**
+	 * Remove featured image from GTD post
+	 * 
+	 * Uses the gravity forms validation hook to determine if the image has been removed from
+	 * a post and if so, it removes it.
+	 * @param unknown_type $result
+	 * @param unknown_type $value
+	 * @param unknown_type $form
+	 * @param unknown_type $field
+	 * @return unknown
+	 */
+	public function delete_image_from_post($result, $value, $form, $field) {
+		if(array_key_exists('gtd_delete_image', $_POST) && $_POST['gtd_delete_image'] == '1') {
+			foreach($form['fields'] as $field) {
+				if($field['inputName'] == 'post_ID') {
+					$input_id = 'input_' . $field['id'];
+					if(array_key_exists($input_id, $_POST) && (int) $_POST[$input_id] > 0) {
+						$post_ID = (int) $_POST[$input_id];
+						$query = new WP_Query(array(
+							'post_type'        => 'attachment',
+							'post_status'      => 'any',
+							'post_parent'      => $post_ID,
+							'suppress_filters' => true,
+						));
+						foreach($query->posts as $attachment) {
+							wp_delete_attachment($attachment->ID, true);
+						}
+					}
+				}
+			}
+			unset($_POST['gtd_delete_image']);
+		}
+		return $result;
+	}
 	
 	
+	public function populate_gravity_form($form) {
+		global $post;
+		if(array_key_exists('gtd_action', $_REQUEST) && $_REQUEST['gtd_action'] == 'edit' && is_single() && in_array($post->post_type, self::$ALL)) {
+
+			if(!empty($_POST))
+				foreach($form['fields'] as $field)
+					if($field['failed_validation'] === true)
+						return $form;
+
+			$user = new WP_User($post->post_author);
+			foreach($form['fields'] as &$field) {
+				switch($field['inputName']) {
+					case 'gtd_name':
+					case 'gtd_owner':
+						$field['defaultValue'] = $user->first_name . ' ' . $user->last_name;
+						break;
+					case 'gtd_project':
+						$field['defaultValue'] = $post->post_title;
+						break;
+					case 'gtd_email':
+						$field['defaultValue'] = $user->user_email;
+						break;
+					case 'gtd_phone':
+					case 'gtd_location':
+					case 'gtd_website':
+					case 'gtd_availability':
+					case 'gtd_ministry':
+					case 'gtd_purpose':
+					case 'gtd_description':
+					case 'gtd_constraints':
+					case 'gtd_cost':
+					case 'gtd_status':
+					case 'gtd_management_url':
+						$meta = get_post_meta($post->ID, $field['inputName'], true);
+						$field['defaultValue'] = $meta;
+						break;
+					case 'gtd_skills':
+						$skills = get_the_terms($post->ID, self::SKILLS);
+						$field['defaultValue'] = ($skills) ? array_keys($skills) : array();
+						break;
+					case 'gtd_tags':
+						$tags = get_the_terms($post->ID, self::TAGS);
+						$terms = array();
+						if($tags)
+							foreach($tags as $tag)
+								$terms[] = $tag->name;
+						$field['defaultValue'] = implode(', ', $terms);
+						break;
+					case 'post_ID':
+						$field['defaultValue'] = "{$post->ID}";
+						break;
+				}
+			}
+		}
+		return $form;
+	}
 	
+	public function add_image_to_form($content, $field, $value, $lead_id, $form_id) {
+		global $post;
+		
+		if($field['type'] == 'post_image' && array_key_exists('gtd_action', $_REQUEST) && $_REQUEST['gtd_action'] == 'edit' && is_single() && in_array($post->post_type, self::$ALL)) {
+			$thumb = $this->get_thumb(186, 186);
+			$start = '<label class="gfield_label" for="input_%1$s_%2$s">%3$s</label><div class="ginput_complex ginput_container"><span class="ginput_full">';
+			$input = '<input name="input_%2$s" id="input_%1$s_%2$s" type="file" value="" class="medium %4$s" />';
+			$end = '</span></div>';
+			$args = array(
+				"{$form_id}",
+				"{$field['id']}",
+				esc_html($field['label']),
+				'',
+			);
+			
+			$content = vsprintf($start, $args);
+			if($thumb['gtd_default'] === false) {
+				$args[3] = 'gform_hidden';
+				$preview = '<span class="ginput_preview"><div>%1$s</div><a class="gtd-remove-image" href="#">remove</a></span>';
+				$content .= sprintf($preview, print_thumbnail($thumb['thumb'], false, '', 186, 186, 'smallthumb', false));
+			}
+			$content .= vsprintf($input, $args);
+			$content .= vsprintf($end, $args);
+		}
+		return $content;
+	}
+	
+	public function form_pre_submission($form) {
+		if(array_key_exists('gtd_action', $_REQUEST) && $_REQUEST['gtd_action'] == 'edit') {
+			$values = array();
+			foreach($form['fields'] as &$field) {
+				switch($field['inputName']) {
+					case 'gtd_name':
+					case 'gtd_email':
+					case 'gtd_phone':
+					case 'gtd_location':
+					case 'gtd_website':
+					case 'gtd_availability':
+					case 'gtd_ministry':
+					case 'gtd_skills':
+					case 'post_ID':
+					case 'gtd_project':
+					case 'gtd_purpose':
+					case 'gtd_description':
+					case 'gtd_constraints':
+					case 'gtd_cost':
+					case 'gtd_status':
+					case 'gtd_management_url':
+					case 'gtd_tags':
+						$values[$field['inputName']] = $_POST['input_' . $field['id']];
+						break;
+				}
+			}
+			if(array_key_exists('post_ID', $values) && ((int)$values['post_ID'] > 0)) {
+				$gtd_post = get_post($values['post_ID']);
+				$author = new WP_User($gtd_post->post_author);
+				
+				//Determine if the Post title has changed and update it
+				$title = $gtd_post->post_title;
+				if($gtd_post->post_type == self::DEVELOPERS || $gtd_post->post_type == self::OWNERS)
+					$title = $author->first_name . ' ' . $author->last_name;
+				if($gtd_post->post_type == self::PROJECTS)
+					$title = $values['gtd_project'];
+				if($gtd_post->post_title != $title) {
+					wp_update_post(array(
+						'ID' => (int) $gtd_post->ID,
+						'post_title' => $title,
+						'post_name' => sanitize_title($title),
+					));
+					$gtd_post = get_post($gtd_post->ID);
+				}
+				
+				//Update Profile image if it has changed
+				$image_field = array_pop(GFCommon::get_fields_by_type($form, array('post_image')));
+				if($image_field) {
+					$image_input = 'input_' . $image_field['id'];
+					if(array_key_exists($image_input, $_FILES) && array_key_exists('name', $_FILES[$image_input])) {
+						$url = RGFormsModel::upload_file($form['id'], $_FILES[$image_input]);
+						if(strpos($url, 'FAILED') === false)
+							$this->add_image_to_post($url, $gtd_post);
+					}
+				}
+				
+				foreach($values as $name => $value) {
+					if(in_array($name, array('post_ID', 'gtd_name', 'gtd_project', 'gtd_owner')))
+						continue;
+					
+					switch($name) {
+						case 'gtd_skills':
+							$value = (is_array($value)) ? array_map('intval', $value) : array();
+							wp_set_object_terms($gtd_post->ID, $value, self::SKILLS, false);
+							break;
+
+						case 'gtd_tags':
+							wp_set_post_terms($gtd_post->ID, $value, self::TAGS, false);
+							break;
+
+						default:
+							if($value)
+								update_post_meta($gtd_post->ID, $name, $value);
+							else
+								delete_post_meta($gtd_post->ID, $name);
+							break;
+					}
+				}
+				wp_redirect(get_permalink($gtd_post->ID));
+				exit();
+			}
+		}
+	}
+	
+	public function add_image_to_post($url, $post) {
+		require_once(ABSPATH . 'wp-admin/includes/image.php');
+		
+		if (!(($uploads = wp_upload_dir($post->post_date)) && $uploads['error'] === false))
+			return false;
+		
+		$file_name = basename($url);
+		$filename = wp_unique_filename($uploads['path'], $file_name);
+		
+		$file = $uploads['path'] . "/$filename";
+		$uploaddir = wp_upload_dir();
+		$path = str_replace($uploaddir["baseurl"], $uploaddir["basedir"], $url);
+		
+        if(!copy($path, $file))
+            return false;
+        		
+		// Set correct file permissions
+		$stat = stat( dirname( $file ));
+		$perms = $stat['mode'] & 0000666;
+		@ chmod( $file, $perms );
+		
+		// Compute the URL
+		$url = $uploads['url'] . "/$filename";
+		
+		if ( is_multisite() )
+			delete_transient( 'dirsize_cache' );
+		
+		$type = wp_check_filetype($file);
+		$name = basename($url, $type['ext']);
+
+		$image_id = wp_insert_attachment(array(
+			'post_mime_type' => $type['type'],
+			'guid' => $url,
+			'post_parent' => $post->ID,
+			'post_title' => $name,
+			'post_content' => '',
+		), $file, $post->ID);
+		
+		if(!is_wp_error($image_id)) {
+			wp_update_attachment_metadata($image_id, wp_generate_attachment_metadata($image_id, $file));
+			set_post_thumbnail($post->ID, $image_id);
+		}		
+	}
+	
+	public function redirect_form_submission($confirmation, $form, $lead, $ajax) {
+		if(array_key_exists('post_id', $lead) && (int) $lead['post_id'] > 0) {
+			$confirmation = array(
+				'redirect' => get_permalink((int) $lead['post_id']),
+			);
+		}
+		return $confirmation;
+	}
+	
+	public $developer_attrs = array(
+		'gtd_email' => 'Email',
+		'gtd_phone' => 'Phone',
+		'gtd_ministry' => 'Minsitry',
+		'gtd_location' => 'Location',
+		'gtd_website' => 'Website',
+		'gtd_availability' => 'Availability',
+	);
+	
+	public $owner_attrs = array(
+		'gtd_email' => 'Email',
+		'gtd_phone' => 'Phone',
+		'gtd_ministry' => 'Minsitry',
+		'gtd_location' => 'Location',
+		'gtd_website' => 'Website',
+	);
+	
+	public $project_attrs = array(
+		'gtd_purpose' => 'Email',
+		'gtd_description' => 'Location',
+		'gtd_constraints' => 'Minsitry',
+		'gtd_cost' => 'Phone',
+		'gtd_status' => 'Website',
+		'gtd_management_url' => 'Website',
+	);
+	
+	public $attrs = array(
+		'gtd_email' => 'Email',
+		'gtd_phone' => 'Phone',
+		'gtd_ministry' => 'Minsitry',
+		'gtd_location' => 'Location',
+		'gtd_website' => 'Website',
+		'gtd_availability' => 'Availability',
+		'gtd_purpose' => 'Email',
+		'gtd_description' => 'Location',
+		'gtd_constraints' => 'Minsitry',
+		'gtd_cost' => 'Phone',
+		'gtd_status' => 'Website',
+		'gtd_management_url' => 'Website',
+	);
 	
 	public function build_post_content($the_content) {
 		global $post;
 		if(in_array($post->post_type, self::$ALL)) {
 			$the_content = '';
+			foreach($this->attrs as $key => $label) {
+				$value = get_post_meta($post->ID, "$key", true);
+				if($value)
+					$the_content .= "{$label}: {$value}<br />\n";
+			}
+/*
 			switch($post->post_type) {
 				case self::DEVELOPERS:
 				case self::OWNERS:
-					foreach(array(
-						'email' => 'Email',
-						'location' => 'Location',
-						'ministry' => 'Ministry',
-						'phone' => 'Phone',
-						'website' => 'Website',
-						) as $key => $label) {
-							$value = get_post_meta($post->ID, "gtd_$key", true);
-							//$value = preg_replace('/./', '-', $value);
-							if($value)
-								$the_content .= "{$label}: {$value}<br />\n";
-					}
+				case self::PROJECTS:
 					break;
+			}
+*/
+			//Increase view count for single items
+			if(is_single()) {
+				$view_count = (int) get_post_meta($post->ID, 'gtd_view_count', true);
+				$view_count++;
+				update_post_meta($post->ID, 'gtd_view_count', (int) $view_count);
 			}
 		}
 		return $the_content;
 	}
 
-	public function get_thumb($width, $height, $class, $title) {
+	/**
+	 * Generate thumbnail link
+	 * 
+	 * Overrides TheStyle thumbnail support to return a thumbnail attached to the current post,
+	 * or a default image based on GTD custom post type.
+	 * @param int $width Desired width
+	 * @param int $height Desired height
+	 * @return array Array of thumbnail path, url and if it is a gtd_default image
+	 */
+	public function get_thumb($width = 100, $height = 100) {
 		global $post;
-		$thumbnail = get_thumbnail($width,$height,$class,$title,$title);
+		$thumbnail = get_thumbnail($width,$height);
+		$thumbnail['gtd_default'] = false;
 		if($thumbnail['thumb'] == '' && $post && in_array($post->post_type, self::$ALL)) {
 			switch($post->post_type) {
 				case self::DEVELOPERS:
@@ -631,9 +971,41 @@ class GlobalTechDev {
 					break;
 			}
 			$thumbnail['thumb'] = $thumbnail['fullpath'];
+			$thumbnail['gtd_default'] = true;
 		}
 		$thumbnail['use_timthumb'] = false;
 		return $thumbnail;
+	}
+	
+	/**
+	 * Generate an edit link for a GTD post type
+	 * 
+	 * @param int $id Post ID, 0 for current post (if in the loop).
+	 * @param string $label Label for the link
+	 * @param array $attrs Additional attributes for the <a> tag
+	 * @param boolean $echo Echo the link or just return it
+	 * @return string The link. This is returned regardless of what $echo is set to.
+	 */
+	public function get_edit_link($id = 0, $label = 'Edit your Profile', $attrs = array(), $echo = true) {
+		$output = '';
+		if ( $post = &get_post( $id ) ) {
+			if($post_type_object = get_post_type_object( $post->post_type )) {
+				if(current_user_can( $post_type_object->cap->edit_post, $post->ID ) || get_current_user_id() == $post->post_author) {
+					$attributes = '';
+					foreach($attrs as $name => $value)
+						$attributes .= sprintf('%1$s="%2$s" ', $name, esc_attr($value));
+					$output = sprintf(
+						'<a href="%2$s" %3$s>%1$s</a>',
+						esc_html($label),
+						get_permalink($post->ID) . '?gtd_action=edit',
+						$attributes
+					);
+				}
+			}
+		}
+		if($echo)
+			echo $output;
+		return $output;
 	}
 }
 

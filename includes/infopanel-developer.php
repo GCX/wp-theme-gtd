@@ -3,10 +3,10 @@
 	$height = 186;
 	$classtext = 'smallthumb';
 	$titletext = get_the_title();
-	$thumbnail = GlobalTechDev::singleton()->get_thumb($width, $height, $classtext, $titletext);
+	$thumbnail = GlobalTechDev::singleton()->get_thumb($width, $height);
 	$thumb = $thumbnail['thumb']; ?>
 	<div class="single-thumb">
-		<?php print_thumbnail($thumb, $thumbnail['use_timthumb'], $titletext, $width, $height); ?>
+		<?php print_thumbnail($thumb, $thumbnail['use_timthumb'], $titletext, $width, $height, $classtext); ?>
 		<span class="overlay"></span>
 	</div> <!-- end .single-thumb -->
 

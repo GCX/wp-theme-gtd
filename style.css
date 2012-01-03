@@ -13,6 +13,41 @@ License: Modified BSD License
 
 #header { margin-bottom:10px; }
 #logo { margin: 20px 0px 5px 0px; }
-/* nate edit */ input#searchinput {color:#777;}
-/* nate edit */ #left-area {margin-left:0; width:68%;}
-/* nate edit */ #sidebar .widget.gtd-add-buttons h3 a {display:block;}
+input#searchinput {color:#777;}
+#left-area {margin-left:0; width:68%;}
+#sidebar .widget.gtd-add-buttons h3 a {display:block;}
+
+#tabbed.ui-corner-all {broder-radius:0;}
+
+.gtd_edit_image {float:left; margin:10px;}
+
+
+
+/* gravity forms */
+.gform_wrapper .gfield input[type="text"],
+.gform_wrapper .gfield input[type="url"],
+.gform_wrapper .gfield input[type="email"],
+.gform_wrapper .gfield input[type="tel"],
+.gform_wrapper .gfield input[type="number"],
+.gform_wrapper .gfield input[type="password"],
+.gform_wrapper .gfield textarea {font-size:30px; line-height:1em; letter-spacing:-0.05em; margin-top:0; margin-bottom:0; padding:2px;}
+.gform_wrapper .gfield textarea {line-height:1.5em; padding:2px;}
+.gform_wrapper .gfield textarea.small {height:6.5em;}
+.gform_wrapper .gfield textarea.medium {height:9.5em;}
+.gform_wrapper .gfield textarea.large {height:12.5em;}
+
+.gform_wrapper .top_label .gfield textarea.textarea {width:;}
+
+.gform_wrapper .top_label .gfield .gfield_label,
+.gform_wrapper .gfield div.gfield_description {font-size:18px; line-height:1.5em; padding-bottom:0; margin-bottom:0;}
+
+.gform_wrapper .gfield .ginput_container {margin:0.25em 0 1em;}
+
+.gform_wrapper .gfield div.charleft {font-size:16px; line-height:1.5em; margin-bottom:1em;}
+
+.gform_wrapper .gfield ul.tagit {margin:0; border-radius:0; padding:0 2px; width:99%;}
+.gform_wrapper .gfield ul.tagit li {font-size:30px; line-height:1.5em;}
+.gform_wrapper .gfield ul.tagit li.tagit-choice {padding-right:24px;}
+
+.gform_wrapper .gfield .chzn-container-multi {margin-bottom:0;}
+.gform_wrapper .gfield .chzn-container-multi .chzn-choices .search-field input {padding:2px; margin-top:0; margin-bottom:0;}

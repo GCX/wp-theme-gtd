@@ -1,0 +1,4 @@
+
+Prepopulate Developer and Owner forms with data from Owner or Developer if it exists.
+Modify ET Tabbed widget to show only posts from Developers, Owners, Projects. Add in Forum posts when bbPress is added.
+Update gravity form entry and posts titles and slugs when First or Last name changes in wordpress profile.

@@ -9,7 +9,7 @@
 	$classtext = '';
 	$titletext = get_the_title();
 	
-	$thumbnail = GlobalTechDev::singleton()->get_thumb($width, $height, $classtext, $titletext);
+	$thumbnail = GlobalTechDev::singleton()->get_thumb($width, $height);
 	$thumb = $thumbnail["thumb"]; ?>
 	
 <div class="entry <?php if ($biglayout) echo('big'); else echo('small');?>">

@@ -10,11 +10,39 @@ if(array_key_exists('join_project', $_REQUEST) || array_key_exists('leave_projec
 	exit();
 }
 
-get_header();
+if(array_key_exists('gtd_action', $_REQUEST) && $_REQUEST['gtd_action'] == 'edit') :
+	gravity_form_enqueue_scripts(6, false);
+	get_header();
+	the_post();
 ?>
 <div id="content" class="clearfix">
 	<div id="left-area">
-	<?php if ( have_posts() ) : while ( have_posts() ) : the_post(); ?>
+		<div id="post" class="post">
+			<div class="post-content clearfix">
+				<div class="post-text fullwidth">
+					<h1 class="title">Edit Project</h1>
+										
+					<div class="hr"></div>
+					<?php
+						gravity_form(6, false, false);
+					?>
+				</div> <!-- .post-text -->
+			</div> <!-- .post-content -->			
+		</div> <!-- #post -->
+	</div> <!-- #left-area -->
+	<?php get_sidebar('Add Project'); ?>
+</div> <!-- #content -->
+			
+<div id="content-bottom-bg"></div>
+			
+<?php get_footer();
+
+else :
+
+get_header(); ?>
+<div id="content" class="clearfix">
+	<div id="left-area">
+	<?php if ( have_posts() ) : the_post(); ?>
 		<div id="post" class="post">
 			<div class="post-content clearfix">
 				<div class="info-panel">
@@ -28,10 +56,12 @@ get_header();
 					
 					<?php the_content(); ?>
 					
+					<?php  GlobalTechDev::singleton()->get_edit_link(0, 'Edit the Project'); ?>
+					
 				</div> <!-- .post-text -->
 			</div> <!-- .post-content -->
 		</div> <!-- #post -->
-	<?php endwhile; endif; ?>
+	<?php endif; ?>
 	</div> <!-- #left-area -->
 	
 	<div id="sidebar">
@@ -41,4 +71,7 @@ get_header();
 			
 <div id="content-bottom-bg"></div>
 			
-<?php get_footer(); ?>
+<?php get_footer();
+endif;
+?>
+
